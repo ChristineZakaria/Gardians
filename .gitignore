@@ -1,0 +1,19 @@
+# Flutter / Dart
+.dart_tool/
+build/
+.packages
+.pub-cache/
+.pub/
+
+# Android / IDE
+.idea/
+*.iml
+.gradle/
+
+# Logs
+*.log
+hs_err_pid*
+replay_pid*
+
+# Misc
+.DS_Store
