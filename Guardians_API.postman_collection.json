@@ -1,0 +1,331 @@
+{
+  "info": {
+    "name": "Guardians API",
+    "_postman_id": "guardians-v1",
+    "description": "Auth + Pairing + Alerts — Full collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url",      "value": "http://localhost:8080" },
+    { "key": "parent_token",  "value": "" },
+    { "key": "child_token",   "value": "" },
+    { "key": "pairing_code",  "value": "" },
+    { "key": "alert_id",      "value": "" }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Register Parent",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('parent_token', json.token);",
+            "pm.test('Has token', () => pm.expect(json.token).to.be.a('string'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"parent@guardians.app\",\n  \"fullName\": \"Ahmed Hassan\",\n  \"password\": \"SecurePass123!\",\n  \"phone\": \"+201001234567\",\n  \"role\": \"PARENT\"\n}" }
+          }
+        },
+        {
+          "name": "Register Child",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('child_token', json.token);"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"child@guardians.app\",\n  \"fullName\": \"Omar Hassan\",\n  \"password\": \"ChildPass123!\",\n  \"role\": \"CHILD\"\n}" }
+          }
+        },
+        {
+          "name": "Login Parent",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.collectionVariables.set('parent_token', pm.response.json().token);"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"parent@guardians.app\",\n  \"password\": \"SecurePass123!\"\n}" }
+          }
+        },
+        {
+          "name": "Login Child",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.collectionVariables.set('child_token', pm.response.json().token);"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"child@guardians.app\",\n  \"password\": \"ChildPass123!\"\n}" }
+          }
+        },
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📱 Devices",
+      "item": [
+        {
+          "name": "Register Parent Device",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/devices/register",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{parent_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"deviceId\": \"parent-device-abc123\",\n  \"deviceName\": \"Ahmed's iPhone\",\n  \"type\": \"PARENT\",\n  \"fcmToken\": \"fcm-token-parent-placeholder\"\n}" }
+          }
+        },
+        {
+          "name": "Register Child Device",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/devices/register",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{child_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"deviceId\": \"child-device-xyz789\",\n  \"deviceName\": \"Omar's Samsung\",\n  \"type\": \"CHILD\",\n  \"fcmToken\": \"fcm-token-child-placeholder\"\n}" }
+          }
+        },
+        {
+          "name": "Generate Pairing Code (Parent)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('pairing_code', json.code);",
+            "pm.test('6-digit code', () => pm.expect(json.code).to.match(/^\\d{6}$/));",
+            "console.log('Pairing code:', json.code);"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/devices/pairing/generate",
+            "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }]
+          }
+        },
+        {
+          "name": "Connect Child Device (Use Pairing Code)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Success true', () => pm.expect(pm.response.json().success).to.be.true);"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/devices/pairing/connect",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{child_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"{{pairing_code}}\",\n  \"deviceId\": \"child-device-xyz789\",\n  \"deviceName\": \"Omar's Samsung\",\n  \"fcmToken\": \"fcm-token-child-placeholder\"\n}" }
+          }
+        },
+        {
+          "name": "Get My Devices",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/devices/my",
+            "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }]
+          }
+        },
+        {
+          "name": "Get Linked Children (Parent Only)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/devices/children",
+            "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }]
+          }
+        },
+        {
+          "name": "Device Heartbeat",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/devices/child-device-xyz789/heartbeat",
+            "header": [{ "key": "Authorization", "value": "Bearer {{child_token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔔 Alerts",
+      "item": [
+        {
+          "name": "Send Alert (Child → Parent)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('alert_id', json.id);",
+            "pm.test('Alert created', () => pm.expect(json.id).to.be.a('number'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/alerts/send",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{child_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"GENERAL\",\n  \"title\": \"Child accessed inappropriate content\",\n  \"message\": \"Browser attempted to load a blocked URL\",\n  \"severity\": \"HIGH\",\n  \"deviceId\": \"child-device-xyz789\",\n  \"metadata\": {\n    \"url\": \"https://blocked-site.example.com\",\n    \"app\": \"Chrome\"\n  }\n}" }
+          }
+        },
+        {
+          "name": "Send SOS Alert",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/alerts/send",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{child_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"SOS\",\n  \"title\": \"SOS — Child needs help\",\n  \"message\": \"Emergency button pressed\",\n  \"severity\": \"CRITICAL\",\n  \"deviceId\": \"child-device-xyz789\"\n}" }
+          }
+        },
+        {
+          "name": "Get All Alerts (Parent)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/alerts?page=0&size=20&unreadOnly=false",
+              "host": ["{{base_url}}"],
+              "path": ["alerts"],
+              "query": [
+                { "key": "page",       "value": "0" },
+                { "key": "size",       "value": "20" },
+                { "key": "unreadOnly", "value": "false" }
+              ]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }]
+          }
+        },
+        {
+          "name": "Get Unread Alerts Only",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/alerts?unreadOnly=true",
+              "host": ["{{base_url}}"],
+              "path": ["alerts"],
+              "query": [{ "key": "unreadOnly", "value": "true" }]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }]
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/alerts/unread-count",
+            "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }]
+          }
+        },
+        {
+          "name": "Mark Alert as Read",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/alerts/{{alert_id}}/read",
+            "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }]
+          }
+        },
+        {
+          "name": "Mark All Alerts as Read",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/alerts/read-all",
+            "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }]
+          }
+        },
+        {
+          "name": "Delete Alert",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/alerts/{{alert_id}}",
+            "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🛡️ Error Cases",
+      "item": [
+        {
+          "name": "Register — duplicate email",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 409 Conflict', () => pm.response.to.have.status(409));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"parent@guardians.app\",\n  \"fullName\": \"Duplicate\",\n  \"password\": \"AnyPass123!\"\n}" }
+          }
+        },
+        {
+          "name": "Login — wrong password",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"parent@guardians.app\",\n  \"password\": \"WrongPassword\"\n}" }
+          }
+        },
+        {
+          "name": "Pairing — wrong code",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/devices/pairing/connect",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{child_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"000000\",\n  \"deviceId\": \"child-device-xyz789\",\n  \"deviceName\": \"Test\"\n}" }
+          }
+        },
+        {
+          "name": "Protected route — no token",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 403 Forbidden', () => pm.response.to.have.status(403));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/alerts"
+          }
+        },
+        {
+          "name": "Child tries to get parent alerts (403)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 403 Forbidden', () => pm.response.to.have.status(403));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/alerts",
+            "header": [{ "key": "Authorization", "value": "Bearer {{child_token}}" }]
+          }
+        }
+      ]
+    }
+  ]
+}

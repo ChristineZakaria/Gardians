@@ -1,0 +1,41 @@
+version: '3.9'
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: guardians_postgres
+    environment:
+      POSTGRES_DB: guardians_db
+      POSTGRES_USER: guardians
+      POSTGRES_PASSWORD: guardians123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guardians -d guardians_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: guardians_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_USER: guardians
+      DB_PASS: guardians123
+      DB_URL: jdbc:postgresql://postgres:5432/guardians_db
+      JWT_SECRET: 3c7a4f9e2b1d6a8f0e3c7a4f9e2b1d6a8f0e3c7a4f9e2b1d6a8f0e3c7a4f9e
+      FIREBASE_ENABLED: "false"
+      MAIL_USERNAME: tassnemmohamed63@gmail.com
+      MAIL_PASSWORD: ${GMAIL_APP_PASSWORD}
+    ports:
+      - "8080:8080"
+    restart: on-failure
+
+volumes:
+  postgres_data:

@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS geofences (
+    id          BIGSERIAL PRIMARY KEY,
+    device_id   VARCHAR(100) NOT NULL UNIQUE,
+    name        VARCHAR(150),
+    center_lat  DOUBLE PRECISION NOT NULL,
+    center_lng  DOUBLE PRECISION NOT NULL,
+    radius_meters DOUBLE PRECISION NOT NULL DEFAULT 500,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

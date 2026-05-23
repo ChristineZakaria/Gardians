@@ -1,0 +1,1153 @@
+{
+	"info": {
+		"_postman_id": "guardians-full-test-2024",
+		"name": "Guardians Backend - Full Feature Test",
+		"description": "Complete test suite for all 6 features:\n1. Pairing between devices\n2. Location child\n3. Block apps\n4. Block device\n5. Screen time\n6. Access on (apps, sms, calls)\n\n**Run requests IN ORDER** — each step depends on the previous one.\nTokens and IDs are auto-extracted via test scripts.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{ "key": "baseUrl", "value": "http://localhost:8080" },
+		{ "key": "parentEmail", "value": "parent@test.com" },
+		{ "key": "parentPassword", "value": "SecurePass123!" },
+		{ "key": "parentFullName", "value": "Ahmed Hassan" },
+		{ "key": "childEmail", "value": "child@test.com" },
+		{ "key": "childPassword", "value": "ChildPass123!" },
+		{ "key": "childFullName", "value": "Omar Hassan" },
+		{ "key": "parentToken", "value": "" },
+		{ "key": "childToken", "value": "" },
+		{ "key": "parentUserId", "value": "" },
+		{ "key": "childUserId", "value": "" },
+		{ "key": "parentDeviceId", "value": "parent-device-001" },
+		{ "key": "childDeviceId", "value": "child-device-001" },
+		{ "key": "pairingCode", "value": "" }
+	],
+	"item": [
+		{
+			"name": "🔐 1. PAIRING — Device Pairing Flow",
+			"description": "Complete pairing flow: register both users, generate code, link devices.",
+			"item": [
+				{
+					"name": "1.1 Register Parent",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Parent registered successfully', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.token).to.be.a('string');",
+									"    pm.collectionVariables.set('parentToken', json.token);",
+									"    pm.collectionVariables.set('parentUserId', json.userId);",
+									"    console.log('Parent token saved, userId:', json.userId);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{parentEmail}}\",\n  \"fullName\": \"{{parentFullName}}\",\n  \"password\": \"{{parentPassword}}\",\n  \"phone\": \"+201001234567\",\n  \"role\": \"PARENT\"\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+					}
+				},
+				{
+					"name": "1.2 Login Parent",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Parent logged in', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('parentToken', json.token);",
+									"    console.log('Parent token refreshed');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{parentEmail}}\",\n  \"password\": \"{{parentPassword}}\"\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+					}
+				},
+				{
+					"name": "1.3 Get Parent Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Profile returned', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.email).to.eql(pm.collectionVariables.get('parentEmail'));",
+									"    pm.expect(json.role).to.eql('PARENT');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+					}
+				},
+				{
+					"name": "1.4 Register Parent Device",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Parent device registered', function() {",
+									"    pm.response.to.have.status(201);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.deviceId).to.eql(pm.collectionVariables.get('parentDeviceId'));",
+									"    pm.expect(json.type).to.eql('PARENT');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{parentToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"deviceId\": \"{{parentDeviceId}}\",\n  \"deviceName\": \"Ahmed's Phone\",\n  \"type\": \"PARENT\"\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/devices/register", "host": ["{{baseUrl}}"], "path": ["devices", "register"] }
+					}
+				},
+				{
+					"name": "1.5 Generate Pairing Code (Parent)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Pairing code generated', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.code).to.match(/^\\d{6}$/);",
+									"    pm.collectionVariables.set('pairingCode', json.code);",
+									"    console.log('Pairing code:', json.code, '| Expires:', json.expiresAt);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/devices/pairing/generate", "host": ["{{baseUrl}}"], "path": ["devices", "pairing", "generate"] }
+					}
+				},
+				{
+					"name": "1.6 Register Child",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Child registered', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('childToken', json.token);",
+									"    pm.collectionVariables.set('childUserId', json.userId);",
+									"    console.log('Child token saved, userId:', json.userId);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{childEmail}}\",\n  \"fullName\": \"{{childFullName}}\",\n  \"password\": \"{{childPassword}}\",\n  \"role\": \"CHILD\"\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+					}
+				},
+				{
+					"name": "1.7 Use Pairing Code (Child — WITH auth)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Pairing successful', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json.parentName).to.eql(pm.collectionVariables.get('parentFullName'));",
+									"    console.log('Paired with parent:', json.parentName);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{childToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"{{pairingCode}}\",\n  \"deviceId\": \"{{childDeviceId}}\",\n  \"deviceName\": \"Omar's Phone\"\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/devices/pairing/connect", "host": ["{{baseUrl}}"], "path": ["devices", "pairing", "connect"] }
+					}
+				},
+				{
+					"name": "1.8 Get Linked Children (Parent)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Children listed', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.be.an('array').with.length.greaterThan(0);",
+									"    pm.expect(json[0].deviceId).to.eql(pm.collectionVariables.get('childDeviceId'));",
+									"    console.log('Linked children:', json.length);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/devices/children", "host": ["{{baseUrl}}"], "path": ["devices", "children"] }
+					}
+				},
+				{
+					"name": "1.9 Child Heartbeat (Ping)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Heartbeat OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/devices/{{childDeviceId}}/ping", "host": ["{{baseUrl}}"], "path": ["devices", "{{childDeviceId}}", "ping"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "📍 2. LOCATION — Child Location Tracking",
+			"description": "Child sends GPS, parent reads it.",
+			"item": [
+				{
+					"name": "2.1 Child Sends Location",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Location updated', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('updated');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{childToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"deviceId\": \"{{childDeviceId}}\",\n  \"latitude\": 30.0444,\n  \"longitude\": 31.2357\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/location/update", "host": ["{{baseUrl}}"], "path": ["location", "update"] }
+					}
+				},
+				{
+					"name": "2.2 Parent Gets Child Location",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Location returned', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.latitude).to.eql(30.0444);",
+									"    pm.expect(json.longitude).to.eql(31.2357);",
+									"    pm.expect(json.deviceId).to.eql(pm.collectionVariables.get('childDeviceId'));",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/location/{{childDeviceId}}", "host": ["{{baseUrl}}"], "path": ["location", "{{childDeviceId}}"] }
+					}
+				},
+				{
+					"name": "2.3 Child Updates Location (Moved)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Location updated again', function() {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{childToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"deviceId\": \"{{childDeviceId}}\",\n  \"latitude\": 30.0500,\n  \"longitude\": 31.2400\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/location/update", "host": ["{{baseUrl}}"], "path": ["location", "update"] }
+					}
+				},
+				{
+					"name": "2.4 Parent Gets ALL Children Locations",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('All children locations returned', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    var childId = pm.collectionVariables.get('childDeviceId');",
+									"    pm.expect(json).to.have.property(childId);",
+									"    pm.expect(json[childId].latitude).to.eql(30.05);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/location/children", "host": ["{{baseUrl}}"], "path": ["location", "children"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "🚫 3. BLOCK APPS — App Blocking",
+			"description": "Parent blocks apps, child polls block list.",
+			"item": [
+				{
+					"name": "3.1 Parent Blocks Apps",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Apps blocked', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('blocked');",
+									"    pm.expect(json.packages).to.include('com.instagram.android');",
+									"    pm.expect(json.packages).to.include('com.zhiliaoapp.musically');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{parentToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"packages\": [\n    \"com.instagram.android\",\n    \"com.zhiliaoapp.musically\",\n    \"com.snapchat.android\"\n  ]\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/apps/{{childDeviceId}}/block", "host": ["{{baseUrl}}"], "path": ["apps", "{{childDeviceId}}", "block"] }
+					}
+				},
+				{
+					"name": "3.2 Child Polls Blocked Apps",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Blocked list returned', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.packages).to.be.an('array').with.length(3);",
+									"    pm.expect(json.packages).to.include('com.instagram.android');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/apps/{{childDeviceId}}/blocked", "host": ["{{baseUrl}}"], "path": ["apps", "{{childDeviceId}}", "blocked"] }
+					},
+					"description": "No auth needed — child polls this from background service."
+				},
+				{
+					"name": "3.3 Parent Unblocks Single App",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Single app unblocked', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('unblocked');",
+									"    pm.expect(json.packageName).to.eql('com.snapchat.android');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": {
+							"raw": "{{baseUrl}}/apps/{{childDeviceId}}/unblock/single?packageName=com.snapchat.android",
+							"host": ["{{baseUrl}}"],
+							"path": ["apps", "{{childDeviceId}}", "unblock", "single"],
+							"query": [{ "key": "packageName", "value": "com.snapchat.android" }]
+						}
+					}
+				},
+				{
+					"name": "3.4 Verify Block List After Unblock",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Snapchat removed from block list', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.packages).to.have.length(2);",
+									"    pm.expect(json.packages).to.not.include('com.snapchat.android');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/apps/{{childDeviceId}}/blocked", "host": ["{{baseUrl}}"], "path": ["apps", "{{childDeviceId}}", "blocked"] }
+					}
+				},
+				{
+					"name": "3.5 Parent Unblocks All Apps",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('All apps unblocked', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('unblocked');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/apps/{{childDeviceId}}/unblock", "host": ["{{baseUrl}}"], "path": ["apps", "{{childDeviceId}}", "unblock"] }
+					}
+				},
+				{
+					"name": "3.6 Verify Empty Block List",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Block list is empty', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.packages).to.be.an('array').with.length(0);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/apps/{{childDeviceId}}/blocked", "host": ["{{baseUrl}}"], "path": ["apps", "{{childDeviceId}}", "blocked"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "🔒 4. BLOCK DEVICE — Device Blocking",
+			"description": "Parent blocks/unblocks entire device, child polls status.",
+			"item": [
+				{
+					"name": "4.1 Parent Blocks Device",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Device blocked', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('blocked');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/devices/{{childDeviceId}}/block", "host": ["{{baseUrl}}"], "path": ["devices", "{{childDeviceId}}", "block"] }
+					}
+				},
+				{
+					"name": "4.2 Child Polls Status (Blocked)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Device is blocked', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.blocked).to.be.true;",
+									"    pm.expect(json.deviceId).to.eql(pm.collectionVariables.get('childDeviceId'));",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/devices/{{childDeviceId}}/status", "host": ["{{baseUrl}}"], "path": ["devices", "{{childDeviceId}}", "status"] }
+					},
+					"description": "No auth needed — child polls this publicly."
+				},
+				{
+					"name": "4.3 Parent Unblocks Device",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Device unblocked', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('unblocked');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/devices/{{childDeviceId}}/unblock", "host": ["{{baseUrl}}"], "path": ["devices", "{{childDeviceId}}", "unblock"] }
+					}
+				},
+				{
+					"name": "4.4 Child Polls Status (Unblocked)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Device is unblocked', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.blocked).to.be.false;",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/devices/{{childDeviceId}}/status", "host": ["{{baseUrl}}"], "path": ["devices", "{{childDeviceId}}", "status"] }
+					}
+				},
+				{
+					"name": "4.5 ❌ Child Tries to Block (Should Fail 403)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Child cannot block devices', function() {",
+									"    pm.response.to.have.status(403);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Authorization", "value": "Bearer {{childToken}}" }],
+						"url": { "raw": "{{baseUrl}}/devices/{{childDeviceId}}/block", "host": ["{{baseUrl}}"], "path": ["devices", "{{childDeviceId}}", "block"] }
+					},
+					"description": "Security test: child role should be rejected."
+				}
+			]
+		},
+		{
+			"name": "⏱️ 5. SCREEN TIME — Time Limits",
+			"description": "Parent sets screen time limits, child reads and reports usage.",
+			"item": [
+				{
+					"name": "5.1 Parent Sets Screen Time Limit (2 hours)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Screen time limit set', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.screenTimeLimitMinutes).to.eql(120);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{parentToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"screenTimeLimitMinutes\": 120\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/devices/{{childDeviceId}}/settings", "host": ["{{baseUrl}}"], "path": ["devices", "{{childDeviceId}}", "settings"] }
+					}
+				},
+				{
+					"name": "5.2 Child Reads Screen Time Limit",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Child reads limit', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.screenTimeLimitMinutes).to.eql(120);",
+									"    pm.expect(json.deviceId).to.eql(pm.collectionVariables.get('childDeviceId'));",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/devices/{{childDeviceId}}/settings", "host": ["{{baseUrl}}"], "path": ["devices", "{{childDeviceId}}", "settings"] }
+					},
+					"description": "No auth needed — child polls this publicly."
+				},
+				{
+					"name": "5.3 Child Reports App Usage",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Usage reported', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('received');",
+									"    pm.expect(json.count).to.eql(4);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"apps\": [\n    { \"packageName\": \"com.whatsapp\", \"appName\": \"WhatsApp\", \"usageMillis\": 3600000 },\n    { \"packageName\": \"com.instagram.android\", \"appName\": \"Instagram\", \"usageMillis\": 1800000 },\n    { \"packageName\": \"com.google.android.youtube\", \"appName\": \"YouTube\", \"usageMillis\": 5400000 },\n    { \"packageName\": \"com.android.chrome\", \"appName\": \"Chrome\", \"usageMillis\": 900000 }\n  ]\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/apps/{{childDeviceId}}/used", "host": ["{{baseUrl}}"], "path": ["apps", "{{childDeviceId}}", "used"] }
+					},
+					"description": "No auth needed — child reports from background service."
+				},
+				{
+					"name": "5.4 Parent Gets App Summary (Dashboard)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Summary shows correct screen time', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    // Total: 3600000+1800000+5400000+900000 = 11700000ms = 195 min = 3h 15m",
+									"    pm.expect(json.totalHours).to.eql(3);",
+									"    pm.expect(json.totalMinutes).to.eql(15);",
+									"    pm.expect(json.screenTimeLabel).to.eql('3h 15m');",
+									"    pm.expect(json.totalApps).to.eql(0); // no installed apps reported yet",
+									"    console.log('Screen time:', json.screenTimeLabel);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/apps/{{childDeviceId}}/summary", "host": ["{{baseUrl}}"], "path": ["apps", "{{childDeviceId}}", "summary"] }
+					}
+				},
+				{
+					"name": "5.5 Parent Updates Limit (30 min)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Limit updated to 30 min', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.screenTimeLimitMinutes).to.eql(30);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{parentToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"screenTimeLimitMinutes\": 30\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/devices/{{childDeviceId}}/settings", "host": ["{{baseUrl}}"], "path": ["devices", "{{childDeviceId}}", "settings"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "📱 6. ACCESS — Apps, SMS, Calls",
+			"description": "Child reports data, parent reads it.",
+			"item": [
+				{
+					"name": "6.1 Child Reports Installed Apps",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Installed apps reported', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('received');",
+									"    pm.expect(json.count).to.eql(6);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"apps\": [\n    { \"packageName\": \"com.whatsapp\", \"appName\": \"WhatsApp\" },\n    { \"packageName\": \"com.instagram.android\", \"appName\": \"Instagram\" },\n    { \"packageName\": \"com.google.android.youtube\", \"appName\": \"YouTube\" },\n    { \"packageName\": \"com.android.chrome\", \"appName\": \"Chrome\" },\n    { \"packageName\": \"com.google.android.gm\", \"appName\": \"Gmail\" },\n    { \"packageName\": \"com.android.camera2\", \"appName\": \"Camera\" }\n  ]\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/apps/{{childDeviceId}}/installed", "host": ["{{baseUrl}}"], "path": ["apps", "{{childDeviceId}}", "installed"] }
+					}
+				},
+				{
+					"name": "6.2 Block Instagram (for access test)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Instagram blocked', function() {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{parentToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"packages\": [\"com.instagram.android\"]\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/apps/{{childDeviceId}}/block", "host": ["{{baseUrl}}"], "path": ["apps", "{{childDeviceId}}", "block"] }
+					}
+				},
+				{
+					"name": "6.3 Parent Reads Installed Apps (with blocked flag)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Installed apps listed with blocked flag', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.be.an('array').with.length(6);",
+									"    var instagram = json.find(a => a.packageName === 'com.instagram.android');",
+									"    pm.expect(instagram.blocked).to.be.true;",
+									"    var whatsapp = json.find(a => a.packageName === 'com.whatsapp');",
+									"    pm.expect(whatsapp.blocked).to.be.false;",
+									"    console.log('Instagram blocked:', instagram.blocked, 'WhatsApp blocked:', whatsapp.blocked);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/apps/{{childDeviceId}}/installed", "host": ["{{baseUrl}}"], "path": ["apps", "{{childDeviceId}}", "installed"] }
+					}
+				},
+				{
+					"name": "6.4 Parent Reads App Usage (with blocked flag)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('App usage listed with blocked flag', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.be.an('array').with.length.greaterThan(0);",
+									"    var instagram = json.find(a => a.packageName === 'com.instagram.android');",
+									"    pm.expect(instagram.blocked).to.be.true;",
+									"    pm.expect(instagram.usageTimeMinutes).to.eql(30);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/apps/{{childDeviceId}}/used", "host": ["{{baseUrl}}"], "path": ["apps", "{{childDeviceId}}", "used"] }
+					}
+				},
+				{
+					"name": "6.5 Child Reports Call Log",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Call log reported', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('received');",
+									"    pm.expect(json.count).to.eql(3);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"calls\": [\n    {\n      \"number\": \"+201112345678\",\n      \"name\": \"Mom\",\n      \"callType\": \"INCOMING\",\n      \"durationSeconds\": 340,\n      \"timestamp\": 1713385200000\n    },\n    {\n      \"number\": \"+201098765432\",\n      \"name\": \"Friend Ali\",\n      \"callType\": \"OUTGOING\",\n      \"durationSeconds\": 120,\n      \"timestamp\": 1713381600000\n    },\n    {\n      \"number\": \"+201055555555\",\n      \"name\": \"\",\n      \"callType\": \"MISSED\",\n      \"durationSeconds\": 0,\n      \"timestamp\": 1713378000000\n    }\n  ]\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/comms/{{childDeviceId}}/calls", "host": ["{{baseUrl}}"], "path": ["comms", "{{childDeviceId}}", "calls"] }
+					}
+				},
+				{
+					"name": "6.6 Parent Reads Call Log",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Call log returned', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.calls).to.be.an('array').with.length(3);",
+									"    pm.expect(json.calls[0].name).to.eql('Mom');",
+									"    pm.expect(json.calls[0].callType).to.eql('INCOMING');",
+									"    pm.expect(json.calls[0].durationSeconds).to.eql(340);",
+									"    console.log('Calls:', json.calls.map(c => c.name + ' (' + c.callType + ')'));",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/comms/{{childDeviceId}}/calls", "host": ["{{baseUrl}}"], "path": ["comms", "{{childDeviceId}}", "calls"] }
+					}
+				},
+				{
+					"name": "6.7 Child Reports SMS Log",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('SMS log reported', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('received');",
+									"    pm.expect(json.count).to.eql(3);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"messages\": [\n    {\n      \"address\": \"+201112345678\",\n      \"body\": \"Hi Omar, when are you coming home?\",\n      \"smsType\": \"INBOX\",\n      \"timestamp\": 1713385200000\n    },\n    {\n      \"address\": \"+201112345678\",\n      \"body\": \"On my way mom!\",\n      \"smsType\": \"SENT\",\n      \"timestamp\": 1713385260000\n    },\n    {\n      \"address\": \"VODAFONE\",\n      \"body\": \"Your balance is 25 EGP\",\n      \"smsType\": \"INBOX\",\n      \"timestamp\": 1713380000000\n    }\n  ]\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/comms/{{childDeviceId}}/sms", "host": ["{{baseUrl}}"], "path": ["comms", "{{childDeviceId}}", "sms"] }
+					}
+				},
+				{
+					"name": "6.8 Parent Reads SMS Log",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('SMS log returned', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.messages).to.be.an('array').with.length(3);",
+									"    var first = json.messages[0];",
+									"    pm.expect(first.address).to.be.a('string');",
+									"    pm.expect(first.body).to.be.a('string');",
+									"    pm.expect(first.smsType).to.be.a('string');",
+									"    console.log('Messages:', json.messages.map(m => m.address + ': ' + m.body.substring(0, 30)));",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/comms/{{childDeviceId}}/sms", "host": ["{{baseUrl}}"], "path": ["comms", "{{childDeviceId}}", "sms"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "🔔 BONUS: Alerts",
+			"description": "Child sends alert to parent, parent reads and manages them.",
+			"item": [
+				{
+					"name": "B.1 Child Sends SOS Alert",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Alert sent', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.id).to.be.a('number');",
+									"    pm.collectionVariables.set('alertId', json.id);",
+									"    console.log('Alert ID:', json.id);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{childToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"SOS\",\n  \"title\": \"Emergency SOS\",\n  \"message\": \"Omar pressed the emergency button!\",\n  \"severity\": \"CRITICAL\",\n  \"deviceId\": \"{{childDeviceId}}\"\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/alerts/send", "host": ["{{baseUrl}}"], "path": ["alerts", "send"] }
+					}
+				},
+				{
+					"name": "B.2 Child Sends Unsafe URL Alert",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('URL alert sent', function() {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{childToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"UNSAFE_URL\",\n  \"title\": \"Blocked website access attempt\",\n  \"message\": \"Child tried to visit an unsafe website\",\n  \"severity\": \"HIGH\",\n  \"deviceId\": \"{{childDeviceId}}\",\n  \"metadata\": {\n    \"url\": \"https://unsafe-site.example.com\",\n    \"app\": \"Chrome\"\n  }\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/alerts/send", "host": ["{{baseUrl}}"], "path": ["alerts", "send"] }
+					}
+				},
+				{
+					"name": "B.3 Parent Gets Alerts",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Alerts returned', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.totalElements).to.be.greaterThan(0);",
+									"    pm.expect(json.alerts).to.be.an('array');",
+									"    console.log('Total alerts:', json.totalElements, 'Unread:', json.unreadCount);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": {
+							"raw": "{{baseUrl}}/alerts?page=0&size=20&unreadOnly=false",
+							"host": ["{{baseUrl}}"],
+							"path": ["alerts"],
+							"query": [
+								{ "key": "page", "value": "0" },
+								{ "key": "size", "value": "20" },
+								{ "key": "unreadOnly", "value": "false" }
+							]
+						}
+					}
+				},
+				{
+					"name": "B.4 Parent Gets Unread Count",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Unread count returned', function() {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.unreadCount).to.be.greaterThan(0);",
+									"    console.log('Unread alerts:', json.unreadCount);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/alerts/unread-count", "host": ["{{baseUrl}}"], "path": ["alerts", "unread-count"] }
+					}
+				},
+				{
+					"name": "B.5 Parent Marks All Alerts Read",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('All marked read', function() {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [{ "key": "Authorization", "value": "Bearer {{parentToken}}" }],
+						"url": { "raw": "{{baseUrl}}/alerts/read-all", "host": ["{{baseUrl}}"], "path": ["alerts", "read-all"] }
+					}
+				}
+			]
+		}
+	]
+}
