@@ -1,20 +1,26 @@
 package com.guardians.modules.alerts.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.guardians.modules.alerts.dto.*;
 import com.guardians.modules.alerts.service.AlertService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.stream.Collectors;
+
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/alerts")
 @RequiredArgsConstructor
@@ -23,6 +29,7 @@ import java.util.Map;
 public class AlertController {
 
     private final AlertService alertService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping("/send")
     @Operation(summary = "Send an alert from child device to parent (called by Child)")
@@ -34,8 +41,20 @@ public class AlertController {
 
     @PostMapping("/content-detection")
     @Operation(summary = "Report TFLite unsafe content detection (public — no auth required)")
-    public ResponseEntity<AlertResponse> reportContentDetection(
-            @Valid @RequestBody ContentDetectionRequest req) {
+    public ResponseEntity<AlertResponse> reportContentDetection(HttpServletRequest httpReq) {
+        ContentDetectionRequest req;
+        try {
+            String body = httpReq.getReader().lines().collect(Collectors.joining("\n")).trim();
+            if (body.isBlank()) {
+                log.warn("content-detection: empty body — using game fallback");
+                req = new ContentDetectionRequest("", null, "Bear Game", "game_inappropriate_touch", 1.0, null, "sensitive area touched");
+            } else {
+                req = objectMapper.readValue(body, ContentDetectionRequest.class);
+            }
+        } catch (Exception e) {
+            log.warn("content-detection: body parse failed ({}) — using game fallback", e.getMessage());
+            req = new ContentDetectionRequest("", null, "Bear Game", "game_inappropriate_touch", 1.0, null, "sensitive area touched");
+        }
         return ResponseEntity.ok(alertService.reportContentDetection(req));
     }
 
@@ -62,6 +81,16 @@ public class AlertController {
             @PathVariable String deviceId,
             @AuthenticationPrincipal UserDetails user) {
         return ResponseEntity.ok(alertService.getTodayAlertsByDevice(deviceId, user.getUsername()));
+    }
+
+    @GetMapping("/device/{deviceId}/date")
+    @PreAuthorize("hasRole('PARENT')")
+    @Operation(summary = "Get alerts for a specific date (YYYY-MM-DD)")
+    public ResponseEntity<java.util.List<AlertResponse>> getDeviceAlertsByDate(
+            @PathVariable String deviceId,
+            @RequestParam String date,
+            @AuthenticationPrincipal UserDetails user) {
+        return ResponseEntity.ok(alertService.getAlertsByDate(deviceId, user.getUsername(), date));
     }
 
     @GetMapping

@@ -4,10 +4,12 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "app_usage",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"device_id", "package_name"}))
+    uniqueConstraints = @UniqueConstraint(columnNames = {"device_id", "package_name", "date"}))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class AppUsage {
 
@@ -26,6 +28,10 @@ public class AppUsage {
     @Column(name = "usage_millis", nullable = false)
     @Builder.Default
     private Long usageMillis = 0L;
+
+    @Column(name = "date", nullable = false)
+    @Builder.Default
+    private LocalDate date = LocalDate.now(ZoneOffset.UTC);
 
     @Column(name = "reported_at", nullable = false)
     @Builder.Default

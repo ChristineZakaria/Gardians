@@ -9,5 +9,9 @@ public record LinkByBirthCertRequest(
     @NotBlank       String birthCertImageBase64,
                     String deviceInfo,
                     String deviceName,
-                    String fcmToken
+                    String fcmToken,
+                    String childGender,
+                    String childName,
+                    String childEmail,
+                    String childPassword
 ) {}

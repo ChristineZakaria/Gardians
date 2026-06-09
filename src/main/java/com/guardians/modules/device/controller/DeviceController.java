@@ -71,6 +71,16 @@ public class DeviceController {
         return ResponseEntity.ok(deviceService.linkByBirthCert(req));
     }
 
+    @PostMapping("/pairing/register-child")
+    @PreAuthorize("hasRole('PARENT')")
+    @Operation(summary = "Parent creates a child account + device (no child device needed)", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<LinkByBirthCertResponse> registerChildForParent(
+            @Valid @RequestBody RegisterChildRequest req,
+            @AuthenticationPrincipal UserDetails user) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(deviceService.registerChildForParent(req, user.getUsername()));
+    }
+
     @PostMapping("/pairing/connect")
     @Operation(summary = "Use pairing code to link child device to parent (auth optional)")
     public ResponseEntity<PairingResultResponse> usePairingCode(
@@ -107,13 +117,11 @@ public class DeviceController {
         resp.put("contentScanEnabled",      s.getContentScanEnabled());
         resp.put("imageDetectionEnabled",   s.getImageDetectionEnabled());
         resp.put("videoDetectionEnabled",   s.getVideoDetectionEnabled());
+        resp.put("urlDetectionEnabled",     s.getUrlDetectionEnabled());
+        resp.put("textDetectionEnabled",    s.getTextDetectionEnabled());
         return ResponseEntity.ok(resp);
     }
 
-    /**
-     * Parent updates settings for a child device.
-     * Accepts: screenTimeLimitMinutes, contentScanEnabled, imageDetectionEnabled, videoDetectionEnabled
-     */
     @PutMapping("/{deviceId}/settings")
     @PreAuthorize("hasRole('PARENT')")
     @Operation(summary = "Update device settings (parent only)")
@@ -132,16 +140,13 @@ public class DeviceController {
             s.setImageDetectionEnabled((Boolean) body.get("imageDetectionEnabled"));
         if (body.containsKey("videoDetectionEnabled"))
             s.setVideoDetectionEnabled((Boolean) body.get("videoDetectionEnabled"));
+        if (body.containsKey("urlDetectionEnabled"))
+            s.setUrlDetectionEnabled((Boolean) body.get("urlDetectionEnabled"));
+        if (body.containsKey("textDetectionEnabled"))
+            s.setTextDetectionEnabled((Boolean) body.get("textDetectionEnabled"));
 
         s.setUpdatedAt(Instant.now());
         deviceSettingsRepository.save(s);
-
-        deviceRepository.findByDeviceId(deviceId).ifPresent(device ->
-            firebaseService.sendDataMessage(device.getFcmToken(), "SETTINGS_UPDATED",
-                Map.of("contentScanEnabled",    s.getContentScanEnabled(),
-                       "imageDetectionEnabled", s.getImageDetectionEnabled(),
-                       "videoDetectionEnabled", s.getVideoDetectionEnabled()))
-        );
 
         Map<String, Object> resp = new java.util.LinkedHashMap<>();
         resp.put("deviceId",                deviceId);
@@ -149,6 +154,8 @@ public class DeviceController {
         resp.put("contentScanEnabled",      s.getContentScanEnabled());
         resp.put("imageDetectionEnabled",   s.getImageDetectionEnabled());
         resp.put("videoDetectionEnabled",   s.getVideoDetectionEnabled());
+        resp.put("urlDetectionEnabled",     s.getUrlDetectionEnabled());
+        resp.put("textDetectionEnabled",    s.getTextDetectionEnabled());
         return ResponseEntity.ok(resp);
     }
 }

@@ -162,8 +162,9 @@ public class AppControlController {
             return ResponseEntity.badRequest().body(Map.of("error", "apps list is required"));
         }
 
-        // One SELECT to fetch all existing records for this device
-        Map<String, AppUsage> existing = appUsageRepository.findByDeviceId(deviceId)
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        // Fetch today's records only (one record per app per day)
+        Map<String, AppUsage> existing = appUsageRepository.findByDeviceIdAndDate(deviceId, today)
                 .stream()
                 .collect(Collectors.toMap(AppUsage::getPackageName, u -> u));
 
@@ -183,7 +184,7 @@ public class AppControlController {
                     }
 
                     AppUsage record = existing.getOrDefault(pkg,
-                            AppUsage.builder().deviceId(deviceId).packageName(pkg).build());
+                            AppUsage.builder().deviceId(deviceId).packageName(pkg).date(today).build());
                     record.setAppName(name);
                     record.setUsageMillis(millis);
                     record.setReportedAt(now);
@@ -211,15 +212,12 @@ public class AppControlController {
 
         findAndVerifyOwnership(deviceId, userDetails.getUsername());
 
-        // If a specific date is requested and it's not today, we have no history
-        if (date != null && !date.equals(LocalDate.now(ZoneOffset.UTC).toString())) {
-            return ResponseEntity.ok(List.of());
-        }
+        LocalDate queryDate = (date != null) ? LocalDate.parse(date) : LocalDate.now(ZoneOffset.UTC);
 
         List<String> blockedPackages = appBlockRepository.findByDeviceId(deviceId)
                 .stream().map(AppBlock::getPackageName).collect(Collectors.toList());
 
-        List<Map<String, Object>> result = appUsageRepository.findByDeviceId(deviceId)
+        List<Map<String, Object>> result = appUsageRepository.findByDeviceIdAndDate(deviceId, queryDate)
                 .stream()
                 .map(u -> {
                     long millis  = u.getUsageMillis();
@@ -252,12 +250,11 @@ public class AppControlController {
         findAndVerifyOwnership(deviceId, userDetails.getUsername());
 
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
-        long todayMillis = appUsageRepository.sumUsageMillisByDeviceId(deviceId);
 
         List<Map<String, Object>> result = new ArrayList<>();
         for (int daysAgo = 6; daysAgo >= 0; daysAgo--) {
             LocalDate date = today.minusDays(daysAgo);
-            long millis = (daysAgo == 0) ? todayMillis : 0L;
+            long millis = appUsageRepository.sumUsageMillisByDeviceIdAndDate(deviceId, date);
             Map<String, Object> entry = new java.util.LinkedHashMap<>();
             entry.put("date",         date.toString());
             entry.put("totalMinutes", millis / 60_000L);

@@ -67,4 +67,16 @@ public class AuthService {
                 .orElseThrow(() -> ApiException.notFound("User not found"));
         return UserResponse.from(user);
     }
+
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequest req) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> ApiException.notFound("User not found"));
+        if (!passwordEncoder.matches(req.currentPassword(), user.getPasswordHash())) {
+            throw ApiException.badRequest("Current password is incorrect");
+        }
+        user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
+        userRepository.save(user);
+        log.info("Password changed for: {}", email);
+    }
 }

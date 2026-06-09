@@ -198,8 +198,18 @@ public class AlertService {
     // ── Content Detection (TFLite on-device, no auth) ────────
     @Transactional
     public AlertResponse reportContentDetection(ContentDetectionRequest req) {
-        Device device = deviceRepository.findByDeviceId(req.deviceId())
-                .orElseThrow(() -> ApiException.notFound("Device not found: " + req.deviceId()));
+        Device device;
+        if (req.deviceId() != null && !req.deviceId().isBlank()) {
+            device = deviceRepository.findByDeviceId(req.deviceId())
+                    .orElseThrow(() -> ApiException.notFound("Device not found: " + req.deviceId()));
+        } else {
+            // Game sent empty deviceId — fall back to most recently active child device
+            var recent = deviceRepository.findMostRecentlyActiveChildDevices(
+                    org.springframework.data.domain.PageRequest.of(0, 1));
+            if (recent.isEmpty()) throw ApiException.badRequest("No active child device found");
+            device = recent.get(0);
+            log.info("Content detection: empty deviceId, using most recent device={}", device.getDeviceId());
+        }
 
         if (device.getLinkedParent() == null) {
             throw ApiException.badRequest("Device is not paired with any parent");
@@ -270,6 +280,16 @@ public class AlertService {
                 .stream().map(AlertResponse::from).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<AlertResponse> getAlertsByDate(String deviceId, String parentEmail, String dateStr) {
+        verifyParentOwnsDevice(deviceId, parentEmail);
+        java.time.LocalDate date = java.time.LocalDate.parse(dateStr);
+        Instant start = date.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant end   = date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        return alertRepository.findByDeviceIdAndDateRange(deviceId, start, end)
+                .stream().map(AlertResponse::from).toList();
+    }
+
     private AlertEntity.AlertType mapCategoryToType(String category) {
         return switch (category.toLowerCase()) {
             // Legacy TFLite categories
@@ -279,13 +299,18 @@ public class AlertService {
             // Image model categories
             case "image_unsafe", "image_weapon",
                  "image_drugs", "image_violence"         -> AlertEntity.AlertType.INAPPROPRIATE_IMAGE;
-            // Video model category
+            // Video model categories
             case "video_unsafe"                           -> AlertEntity.AlertType.INAPPROPRIATE_VIDEO;
+            case "video_harmful"                          -> AlertEntity.AlertType.INAPPROPRIATE_VIDEO;
+            case "video_suicide"                          -> AlertEntity.AlertType.SELF_HARM;
+            // Bear game
+            case "game_inappropriate_touch"               -> AlertEntity.AlertType.INAPPROPRIATE_IMAGE;
             // URL monitoring
             case "url_threat"                             -> AlertEntity.AlertType.UNSAFE_URL;
             // Text / Perspective API
             case "text_threat", "text_toxicity",
-                 "text_profanity", "text_sexually_explicit" -> AlertEntity.AlertType.INAPPROPRIATE_TEXT;
+                 "text_profanity", "text_sexually_explicit",
+                 "text_mental_health"                       -> AlertEntity.AlertType.INAPPROPRIATE_TEXT;
             default                                       -> AlertEntity.AlertType.GENERAL;
         };
     }
@@ -298,7 +323,11 @@ public class AlertService {
             case "harmful content", "image_weapon",
                  "image_violence", "text_toxicity",
                  "text_sexually_explicit"                 -> AlertEntity.Severity.HIGH;
-            case "image_drugs", "text_profanity"          -> AlertEntity.Severity.MEDIUM;
+            case "image_drugs", "text_profanity",
+                 "text_mental_health"                      -> AlertEntity.Severity.HIGH;
+            case "video_harmful"                          -> AlertEntity.Severity.HIGH;
+            case "video_suicide"                          -> AlertEntity.Severity.CRITICAL;
+            case "game_inappropriate_touch"               -> AlertEntity.Severity.HIGH;
             default                                       -> AlertEntity.Severity.MEDIUM;
         };
     }
@@ -337,10 +366,12 @@ public class AlertService {
             case "image_violence"          -> "Violent image detected";
             case "image_unsafe"            -> "Unsafe image detected";
             case "video_unsafe"            -> "Unsafe video detected";
+            case "game_inappropriate_touch" -> "⚠️ Inappropriate touch in Bear Game";
             case "text_threat"             -> "Threatening message detected";
             case "text_toxicity"           -> "Toxic content detected";
             case "text_profanity"          -> "Profanity detected";
-            case "text_sexually_explicit"  -> "Explicit text detected";
+            case "text_sexually_explicit"  -> "Explicit or grooming content detected";
+            case "text_mental_health"      -> "Mental health concern detected";
             default                        -> category + " detected";
         };
         return label + " in " + appName;
@@ -358,6 +389,8 @@ public class AlertService {
                  "text_toxicity",
                  "text_sexually_explicit",
                  "text_profanity"         -> "sent or received harmful text";
+            case "game_inappropriate_touch" -> "touched an inappropriate area in the Bear Game";
+            case "text_mental_health"       -> "expressed concerning mental health content";
             default                       -> "triggered " + category;
         };
         StringBuilder sb = new StringBuilder();

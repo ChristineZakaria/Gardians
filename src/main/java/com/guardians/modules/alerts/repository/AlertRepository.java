@@ -27,6 +27,9 @@ public interface AlertRepository extends JpaRepository<AlertEntity, Long> {
     @Query("SELECT a FROM AlertEntity a WHERE a.senderDevice.deviceId = :deviceId AND a.createdAt >= :startOfDay ORDER BY a.createdAt DESC")
     List<AlertEntity> findTodayByDeviceId(@Param("deviceId") String deviceId, @Param("startOfDay") Instant startOfDay);
 
+    @Query("SELECT a FROM AlertEntity a WHERE a.senderDevice.deviceId = :deviceId AND a.createdAt >= :start AND a.createdAt < :end ORDER BY a.createdAt DESC")
+    List<AlertEntity> findByDeviceIdAndDateRange(@Param("deviceId") String deviceId, @Param("start") Instant start, @Param("end") Instant end);
+
     @Modifying
     @Transactional
     @Query("UPDATE AlertEntity a SET a.read = true WHERE a.parent.id = :parentId AND a.read = false")

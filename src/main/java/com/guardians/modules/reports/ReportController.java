@@ -38,7 +38,8 @@ public class ReportController {
         int textThreats   = toInt(body.get("textThreats"));
         int imageThreats  = toInt(body.get("imageThreats"));
         int videoThreats  = toInt(body.get("videoThreats"));
-        int totalThreats  = urlThreats + textThreats + imageThreats + videoThreats;
+        int gameThreats   = toInt(body.get("gameThreats"));
+        int totalThreats  = urlThreats + textThreats + imageThreats + videoThreats + gameThreats;
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> apps = body.get("apps") instanceof List<?> l
@@ -68,6 +69,7 @@ Date: %s
   💬 Text threats:  %d
   🖼 Image alerts:  %d
   🎬 Video alerts:  %d
+  🎮 Game alerts:   %d
   Total:            %d
 
 📊 Top Apps Used Today
@@ -76,7 +78,7 @@ Date: %s
 ━━━━━━━━━━━━━━━━━━━━━━
 Sent automatically by Guardians Parental Control
 """.formatted(deviceName, dateStr, todayTime, weekTime,
-              urlThreats, textThreats, imageThreats, videoThreats, totalThreats, appLines);
+              urlThreats, textThreats, imageThreats, videoThreats, gameThreats, totalThreats, appLines);
 
         emailService.sendSimpleEmail(toEmail, subject, emailBody);
         return ResponseEntity.ok(Map.of("sent", true, "to", toEmail));

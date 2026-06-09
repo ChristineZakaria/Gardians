@@ -24,4 +24,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
     @Query("SELECT d FROM Device d WHERE d.linkedParent.id = :parentId AND d.active = true")
     List<Device> findActiveChildDevicesByParentId(@Param("parentId") Long parentId);
+
+    @Query("SELECT d FROM Device d WHERE d.linkedParent IS NOT NULL ORDER BY d.lastSeen DESC")
+    List<Device> findMostRecentlyActiveChildDevices(org.springframework.data.domain.Pageable pageable);
 }

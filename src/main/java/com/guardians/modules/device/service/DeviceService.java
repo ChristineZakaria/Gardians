@@ -1,6 +1,7 @@
 package com.guardians.modules.device.service;
 
 import com.guardians.modules.auth.repository.UserRepository;
+import com.guardians.modules.auth.service.JwtService;
 import com.guardians.modules.device.dto.*;
 import com.guardians.modules.device.repository.DeviceRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,6 +32,7 @@ public class DeviceService {
     private final PairingCodeRepository pairingCodeRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     @Value("${pairing.code-expiry-minutes:5}")
     private int codeExpiryMinutes;
@@ -194,6 +196,28 @@ public class DeviceService {
             throw ApiException.badRequest("Invalid parent email or password");
         }
 
+        // Determine device owner — if child credentials provided, create/find child user
+        User deviceOwner = parent;
+        String childToken = "";
+        boolean hasChildCredentials = req.childEmail() != null && !req.childEmail().isBlank()
+                && req.childPassword() != null && !req.childPassword().isBlank();
+
+        if (hasChildCredentials) {
+            String childEmailLower = req.childEmail().toLowerCase().trim();
+            deviceOwner = userRepository.findByEmail(childEmailLower).orElseGet(() -> {
+                String name = (req.childName() != null && !req.childName().isBlank())
+                        ? req.childName().trim() : "Child";
+                User child = User.builder()
+                        .email(childEmailLower)
+                        .fullName(name)
+                        .passwordHash(passwordEncoder.encode(req.childPassword()))
+                        .role(User.Role.CHILD)
+                        .build();
+                return userRepository.save(child);
+            });
+            childToken = jwtService.generateToken(deviceOwner);
+        }
+
         String deviceId = (req.deviceInfo() != null && !req.deviceInfo().isBlank())
                 ? req.deviceInfo()
                 : UUID.randomUUID().toString();
@@ -209,20 +233,73 @@ public class DeviceService {
                     .deviceId(deviceId)
                     .deviceName(name)
                     .type(Device.DeviceType.CHILD)
-                    .owner(parent)
+                    .owner(deviceOwner)
                     .fcmToken(req.fcmToken())
                     .build();
         }
 
         device.setLinkedParent(parent);
         device.setLastSeen(Instant.now());
+        if (req.childGender() != null && !req.childGender().isBlank()) {
+            device.setChildGender(req.childGender().toUpperCase());
+        }
         deviceRepository.save(device);
 
-        log.info("Device {} linked to parent {} via birth certificate", deviceId, parent.getEmail());
+        log.info("Device {} linked to parent {} via birth certificate (owner: {})",
+                deviceId, parent.getEmail(), deviceOwner.getEmail());
 
         return new LinkByBirthCertResponse(
                 true,
                 "Device linked successfully to " + parent.getFullName(),
+                deviceId,
+                parent.getId(),
+                parent.getFullName(),
+                childToken
+        );
+    }
+
+    // ── Register Child Account from Parent Side ─────────────
+    @Transactional
+    public LinkByBirthCertResponse registerChildForParent(RegisterChildRequest req, String parentEmail) {
+        User parent = findUserByEmail(parentEmail);
+        if (parent.getRole() != User.Role.PARENT) {
+            throw ApiException.forbidden("Only parents can register child accounts");
+        }
+        if (userRepository.existsByEmail(req.childEmail())) {
+            throw ApiException.conflict("Email already registered: " + req.childEmail());
+        }
+
+        // Create child user account
+        User child = User.builder()
+                .email(req.childEmail().toLowerCase().trim())
+                .fullName(req.childName().trim())
+                .passwordHash(passwordEncoder.encode(req.childPassword()))
+                .role(User.Role.CHILD)
+                .build();
+        userRepository.save(child);
+
+        // Create device linked to parent
+        String deviceId = UUID.randomUUID().toString();
+        String deviceName = (req.deviceName() != null && !req.deviceName().isBlank())
+                ? req.deviceName() : req.childName() + "'s Device";
+
+        Device device = Device.builder()
+                .deviceId(deviceId)
+                .deviceName(deviceName)
+                .type(Device.DeviceType.CHILD)
+                .owner(child)
+                .build();
+        device.setLinkedParent(parent);
+        if (req.childGender() != null && !req.childGender().isBlank()) {
+            device.setChildGender(req.childGender().toUpperCase());
+        }
+        deviceRepository.save(device);
+
+        log.info("Parent {} registered child account {} (device {})", parentEmail, req.childEmail(), deviceId);
+
+        return new LinkByBirthCertResponse(
+                true,
+                "Child account created successfully",
                 deviceId,
                 parent.getId(),
                 parent.getFullName(),

@@ -38,4 +38,13 @@ public class AuthController {
     public ResponseEntity<UserResponse> me(@AuthenticationPrincipal UserDetails user) {
         return ResponseEntity.ok(authService.getProfile(user.getUsername()));
     }
+
+    @PutMapping("/change-password")
+    @Operation(summary = "Change current user password", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<Void> changePassword(
+            @AuthenticationPrincipal UserDetails user,
+            @Valid @RequestBody ChangePasswordRequest req) {
+        authService.changePassword(user.getUsername(), req);
+        return ResponseEntity.ok().build();
+    }
 }

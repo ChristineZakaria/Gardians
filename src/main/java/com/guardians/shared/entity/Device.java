@@ -61,5 +61,8 @@ public class Device {
     @Column(name = "current_app", length = 150)
     private String currentApp;
 
+    @Column(name = "child_gender", length = 10)
+    private String childGender;
+
     public enum DeviceType { PARENT, CHILD }
 }

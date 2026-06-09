@@ -30,6 +30,14 @@ public class DeviceSettings {
     @Builder.Default
     private Boolean contentScanEnabled = true;
 
+    @Column(name = "url_detection_enabled", nullable = false)
+    @Builder.Default
+    private Boolean urlDetectionEnabled = true;
+
+    @Column(name = "text_detection_enabled", nullable = false)
+    @Builder.Default
+    private Boolean textDetectionEnabled = true;
+
     @Column(name = "updated_at", nullable = false)
     @Builder.Default
     private Instant updatedAt = Instant.now();
